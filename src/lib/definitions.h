@@ -23,14 +23,18 @@
 
 //====== structs ======
 struct mftp_connection {
-	struct addrinfo *address_info;
+	struct addrinfo *host_address_info;
+	struct addrinfo *connection_address_info;
 	int socket;
 };
-struct communication_chunk {
+struct mftp_communication_chunk {
+	char data[512];
 };
 
 //======== prototypes =========
 struct mftp_connection *mftp_connect(char *address, char *port);
 int mftp_disconnect(struct mftp_connection *connection);
+int mftp_send_communication_chunk(struct mftp_connection *connection, struct mftp_communication_chunk *chunk);
+struct mftp_communication_chunk *mftp_recv_communication_chunk(struct mftp_connection *connection);
 
 #endif

@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-g
-LIBS=
+LIBS=-fsanitize=address
 
 #auto generation
 MFTP_MAIN_OBJ_LIST=$(shell find src/main/ | grep -E [.]c$$ | sed s/[.]c/.o/g)
