@@ -60,6 +60,7 @@ struct mftp_connection *mftp_connect(char *address, char *port){
 		return NULL;
 	}
 
+	/*
 	//====== connect to set default sender address ======
 	result = connect(sockfd,address_info->ai_addr,address_info->ai_addrlen);
 	if (result < 0){
@@ -67,6 +68,7 @@ struct mftp_connection *mftp_connect(char *address, char *port){
 		mftp_disconnect(connection);
 		return NULL;
 	}
+	*/
 
 	return connection;
 }
@@ -83,7 +85,7 @@ int mftp_send_communication_chunk(struct mftp_connection *connection, struct mft
 
 	//send untill the receiver gets it
 	for (;;){
-		int result = send(sockfd,chunk,sizeof(struct mftp_communication_chunk),0);
+		int result = sendto(sockfd,chunk,sizeof(struct mftp_communication_chunk),MSG_CONFIRM,connection->connection_address_info->ai_addr,connection->connection_address_info->ai_addrlen);
 		if (result < 0){
 			DEBUG_EXTRA perror("send");
 			return -1;
@@ -103,9 +105,9 @@ struct mftp_communication_chunk *mftp_recv_communication_chunk(struct mftp_conne
 	}
 
 	for (;;){
-		int result = recv(sockfd,&chunk,sizeof(struct mftp_communication_chunk),0);
+		int result = recvfrom(sockfd,&chunk,sizeof(struct mftp_communication_chunk),0,connection->connection_address_info->ai_addr,&(connection->connection_address_info->ai_addrlen));
 		if (result < 0){
-			DEBUG_EXTRA perror("recv");
+			DEBUG_EXTRA perror("recvfrom");
 			free(chunk);
 			return NULL;
 		}
