@@ -36,5 +36,6 @@ struct mftp_connection *mftp_connect(char *address, char *port);
 int mftp_disconnect(struct mftp_connection *connection);
 int mftp_send_communication_chunk(struct mftp_connection *connection, struct mftp_communication_chunk *chunk);
 struct mftp_communication_chunk *mftp_recv_communication_chunk(struct mftp_connection *connection);
+int mftp_connection_check_error(struct mftp_connection *connection);
 
 #endif

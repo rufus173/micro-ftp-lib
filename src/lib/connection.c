@@ -7,6 +7,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
 
 struct mftp_connection *mftp_connect(char *address, char *port){
 	if (port == NULL){
@@ -60,6 +63,9 @@ struct mftp_connection *mftp_connect(char *address, char *port){
 		return NULL;
 	}
 
+	//======= set socket options =======
+	result = setsockopt(sockfd,IPPROTO_IP,IP_RECVERR,(void *)1,sizeof(int));
+
 	/*
 	//====== connect to set default sender address ======
 	result = connect(sockfd,address_info->ai_addr,address_info->ai_addrlen);
@@ -91,6 +97,10 @@ int mftp_send_communication_chunk(struct mftp_connection *connection, struct mft
 			return -1;
 		}
 		DEBUG_EXTRA printf("%d bytes out of %lu sent\n",result,sizeof(struct mftp_communication_chunk));
+		if (mftp_connection_check_error(connection) < 0){
+			DEBUG_EXTRA fprintf(stderr,"socket error.\n");
+			return -1;
+		}
 		break;
 	}
 }
@@ -114,4 +124,28 @@ struct mftp_communication_chunk *mftp_recv_communication_chunk(struct mftp_conne
 		break;
 	}
 	return chunk;
+}
+int mftp_connection_check_error(struct mftp_connection *connection){
+	sleep(1);
+	DEBUG_EXTRA printf("checking for errors...\n");
+	int sockfd = connection->socket;
+	size_t max_buffer_size = 200;
+	char *anc_buffer = malloc(max_buffer_size);
+
+	struct cmsghdr *anc_data;
+
+	struct msghdr message;
+	memset(&message,0,sizeof(struct msghdr));
+	message.msg_controllen = max_buffer_size;
+	message.msg_control = anc_buffer;
+	
+	int result = recvmsg(sockfd,&message,MSG_ERRQUEUE);
+	if (result < 0){
+		perror("recvmsg");
+		return -1;
+	}
+
+	
+	printf("%u\n", 1);
+	return 0;
 }
