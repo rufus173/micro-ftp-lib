@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
+#include <errno.h>
 
 struct mftp_connection *mftp_connect(char *address, char *port){
 	if (port == NULL){
@@ -65,6 +66,11 @@ struct mftp_connection *mftp_connect(char *address, char *port){
 
 	//======= set socket options =======
 	result = setsockopt(sockfd,IPPROTO_IP,IP_RECVERR,(void *)1,sizeof(int));
+	if (result < 0){
+		DEBUG_EXTRA perror("setsockopt");
+		mftp_disconnect(connection);
+		return NULL;
+	}
 
 	/*
 	//====== connect to set default sender address ======
@@ -121,18 +127,22 @@ struct mftp_communication_chunk *mftp_recv_communication_chunk(struct mftp_conne
 			free(chunk);
 			return NULL;
 		}
+		if (mftp_connection_check_error(connection) < 0){
+			DEBUG_EXTRA fprintf(stderr,"socket error.\n");
+			return NULL;
+		}
 		break;
 	}
 	return chunk;
 }
 int mftp_connection_check_error(struct mftp_connection *connection){
 	sleep(1);
+	// im not gonnal lie i have no clue whats going on
+	// i did write this but im not sure how it works
 	DEBUG_EXTRA printf("checking for errors...\n");
 	int sockfd = connection->socket;
-	size_t max_buffer_size = 200;
+	size_t max_buffer_size = 512;
 	char *anc_buffer = malloc(max_buffer_size);
-
-	struct cmsghdr *anc_data;
 
 	struct msghdr message;
 	memset(&message,0,sizeof(struct msghdr));
@@ -141,11 +151,26 @@ int mftp_connection_check_error(struct mftp_connection *connection){
 	
 	int result = recvmsg(sockfd,&message,MSG_ERRQUEUE);
 	if (result < 0){
-		perror("recvmsg");
+		if (errno == EWOULDBLOCK || errno == EAGAIN){
+			//no errors
+			DEBUG_EXTRA printf("No errors found.\n");
+			return 0;
+		}
+		DEBUG_EXTRA perror("recvmsg");
+		free(anc_buffer);
 		return -1;
 	}
-
 	
-	printf("%u\n", 1);
-	return 0;
+	struct cmsghdr *anc_data;
+	anc_data = CMSG_FIRSTHDR(&message);
+	if (anc_data == NULL){
+		DEBUG_EXTRA fprintf(stderr,"No room for header.\n");
+		return -1;
+	}
+	char *data_buffer = malloc(sizeof(uint32_t));
+	memcpy(data_buffer,CMSG_DATA(anc_data),sizeof(uint32_t));
+	
+	DEBUG_EXTRA printf("error found: %s\n",strerror(*((uint32_t *)data_buffer)));
+	free(anc_buffer);
+	return -1;
 }
