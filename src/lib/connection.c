@@ -65,7 +65,8 @@ struct mftp_connection *mftp_connect(char *address, char *port){
 	}
 
 	//======= set socket options =======
-	result = setsockopt(sockfd,IPPROTO_IP,IP_RECVERR,(void *)1,sizeof(int));
+	int one = 1;
+	result = setsockopt(sockfd,IPPROTO_IP,IP_RECVERR,&one,sizeof(int));
 	if (result < 0){
 		DEBUG_EXTRA perror("setsockopt");
 		mftp_disconnect(connection);
@@ -171,6 +172,8 @@ int mftp_connection_check_error(struct mftp_connection *connection){
 	memcpy(data_buffer,CMSG_DATA(anc_data),sizeof(uint32_t));
 	
 	DEBUG_EXTRA printf("error found: %s\n",strerror(*((uint32_t *)data_buffer)));
+	errno = *((uint32_t *)data_buffer);
 	free(anc_buffer);
+	free(data_buffer);
 	return -1;
 }

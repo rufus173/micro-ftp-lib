@@ -13,7 +13,16 @@ int main(int argc, char **argv){
 	struct mftp_communication_chunk *chunk = malloc(sizeof(struct mftp_communication_chunk));
 	strcpy(chunk->data,"hello");
 
-	for (;;) mftp_send_communication_chunk(connection,chunk);
+	for (;;){
+		int result = mftp_send_communication_chunk(connection,chunk);
+		if (result < 0){
+			fprintf(stderr,"could not send data");
+			perror("send_com_chunk");
+			free(chunk);
+			mftp_disconnect(connection);
+			exit(EXIT_FAILURE);
+		}
+	}
 	free(chunk);
 
 	//free(mftp_recv_communication_chunk(connection));

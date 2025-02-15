@@ -2,7 +2,7 @@
 #define _MFTP_CONSTANTS_H
 
 //comment out to disable debug
-#define MFTP_DEBUG_EXTRA
+//#define MFTP_DEBUG_EXTRA
 
 #include <netdb.h>
 #include <sys/socket.h>
