@@ -66,6 +66,8 @@ struct mftp_connection *mftp_connect(char *address, char *port){
 
 	//======= set socket options =======
 	int one = 1;
+
+	//enable error detection on socket (for mftp_check_connection_error)
 	result = setsockopt(sockfd,IPPROTO_IP,IP_RECVERR,&one,sizeof(int));
 	if (result < 0){
 		DEBUG_EXTRA perror("setsockopt");
@@ -137,7 +139,6 @@ struct mftp_communication_chunk *mftp_recv_communication_chunk(struct mftp_conne
 	return chunk;
 }
 int mftp_connection_check_error(struct mftp_connection *connection){
-	sleep(1);
 	// im not gonnal lie i have no clue whats going on
 	// i did write this but im not sure how it works
 	DEBUG_EXTRA printf("checking for errors...\n");
@@ -145,13 +146,16 @@ int mftp_connection_check_error(struct mftp_connection *connection){
 	size_t max_buffer_size = 512;
 	char *anc_buffer = malloc(max_buffer_size);
 
+	//man cmsg
 	struct msghdr message;
 	memset(&message,0,sizeof(struct msghdr));
 	message.msg_controllen = max_buffer_size;
 	message.msg_control = anc_buffer;
 	
 	int result = recvmsg(sockfd,&message,MSG_ERRQUEUE);
+	//                   man recvmsg --- ^^^^^^^^^^^^
 	if (result < 0){
+		//acts as a non blocking socket when no errors are available
 		if (errno == EWOULDBLOCK || errno == EAGAIN){
 			//no errors
 			DEBUG_EXTRA printf("No errors found.\n");
