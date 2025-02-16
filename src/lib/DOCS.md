@@ -17,4 +17,4 @@ Closes and frees an existing connection. `connection` is freed after this functi
 ## `int mftp_connection_check_error(struct mftp_connection *connection)`
 
 This function checks a connection to see if any ICMP messages about failed messages are available, hence whether any detectable errors have occurred. This does not detect if packets are dropped, or if the message gets to its location.
-Returns 0 if no errors were found or -1 if they were. Automatically called in the send and receive functions provided by this library.
+Returns 0 if no errors were found or -1 if they were. Automatically called in the send and receive functions provided by this library. Errno is set if an error is detected, so if you want, you can use perror when it fails
