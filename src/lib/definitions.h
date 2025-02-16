@@ -26,6 +26,11 @@
 struct mftp_connection {
 	struct addrinfo *host_address_info;
 	struct addrinfo *connection_address_info;
+
+	//addresses
+	struct sockaddr *connection_addr;
+	socklen_t connection_addrlen;
+	
 	int socket;
 };
 struct mftp_communication_chunk {

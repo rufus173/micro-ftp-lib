@@ -28,6 +28,7 @@ struct mftp_connection *mftp_create_connection(char *port){
 	memset(connection,0,sizeof(struct mftp_connection));
 	connection->host_address_info = NULL;
 	connection->connection_address_info = NULL;
+	connection->connection_addr = NULL;
 
 	//======== fill in the neccesary paperwork for connecting =======
 	struct addrinfo hints, *host_address_info;
@@ -74,16 +75,6 @@ struct mftp_connection *mftp_create_connection(char *port){
 		return NULL;
 	}
 
-	/*
-	//====== connect to set default sender address ======
-	result = connect(sockfd,address_info->ai_addr,address_info->ai_addrlen);
-	if (result < 0){
-		DEBUG_EXTRA perror("connect");
-		mftp_disconnect(connection);
-		return NULL;
-	}
-	*/
-
 	return connection;
 }
 struct mftp_connection *mftp_connect(char *address, char *port){
@@ -106,6 +97,9 @@ struct mftp_connection *mftp_connect(char *address, char *port){
 		return NULL;
 	}
 	connection->connection_address_info = client_address_info;
+	connection->connection_addr = malloc(client_address_info->ai_addrlen);
+	memcpy(connection->connection_addr,client_address_info->ai_addr,client_address_info->ai_addrlen);
+	connection->connection_addrlen = client_address_info->ai_addrlen;
 
 	//====== handshake with server ======
 	struct mftp_communication_chunk chunk;
@@ -137,11 +131,11 @@ struct mftp_connection *mftp_listen(char *port){
 
 	//====== find a client ======
 	DEBUG_EXTRA printf("listening for connection...\n");
-	struct sockaddr src_addr;
-	socklen_t src_addrlen = sizeof(struct sockaddr);
+	socklen_t src_addrlen = sizeof(struct sockaddr_in6); //max size necessary
+	struct sockaddr *src_addr = malloc(src_addrlen);
 	for (;;){
 		struct mftp_communication_chunk chunk;
-		int result = recvfrom(sockfd,&chunk,sizeof(struct mftp_communication_chunk),0,&src_addr,&src_addrlen);
+		int result = recvfrom(sockfd,&chunk,sizeof(struct mftp_communication_chunk),0,src_addr,&src_addrlen);
 		if (result < 0){
 			DEBUG_EXTRA perror("recvfrom");
 			mftp_disconnect(connection);
@@ -156,31 +150,22 @@ struct mftp_connection *mftp_listen(char *port){
 		}
 	}
 
-	//====== get the address info for client ======
-	struct addrinfo hints, *client_address_info;
-	memset(&hints,0,sizeof(struct addrinfo));
-
-	hints.ai_socktype = SOCK_DGRAM;
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_addr = &src_addr;
-	hints.ai_addrlen = src_addrlen;
-
-	int result = getaddrinfo(NULL,port,&hints,&client_address_info);
-	if (result < 0){
-		DEBUG_EXTRA fprintf(stderr,"getaddrinfo: %s\n",gai_strerror(result));
-		mftp_disconnect(connection);
-		return NULL;
-	}
-	connection->connection_address_info = client_address_info;
+	//====== store it in the connection struct ======
+	connection->connection_addr = src_addr;
+	connection->connection_addrlen = src_addrlen;
 
 	return connection;
 }
 int mftp_disconnect(struct mftp_connection *connection){
 	DEBUG_EXTRA printf("disconnecting from connection.\n");
+	
+	//close socket
+	close(connection->socket);
+
 	//clean up allocated memory
 	freeaddrinfo(connection->connection_address_info);
 	freeaddrinfo(connection->host_address_info);
-	close(connection->socket);
+	free(connection->connection_addr);
 	free(connection);
 }
 int mftp_send_communication_chunk(struct mftp_connection *connection, struct mftp_communication_chunk *chunk){
@@ -189,9 +174,15 @@ int mftp_send_communication_chunk(struct mftp_connection *connection, struct mft
 
 	//send untill the receiver gets it
 	for (;;){
-		int result = sendto(sockfd,chunk,sizeof(struct mftp_communication_chunk),MSG_CONFIRM,connection->connection_address_info->ai_addr,connection->connection_address_info->ai_addrlen);
+		int result = sendto(
+			sockfd,
+			chunk,
+			sizeof(struct mftp_communication_chunk),0,
+			connection->connection_addr,
+			connection->connection_addrlen
+		);
 		if (result < 0){
-			DEBUG_EXTRA perror("send");
+			DEBUG_EXTRA perror("sendto");
 			return -1;
 		}
 		DEBUG_EXTRA printf("%d bytes out of %lu sent\n",result,sizeof(struct mftp_communication_chunk));
@@ -213,7 +204,12 @@ struct mftp_communication_chunk *mftp_recv_communication_chunk(struct mftp_conne
 	}
 
 	for (;;){
-		int result = recvfrom(sockfd,&chunk,sizeof(struct mftp_communication_chunk),0,connection->connection_address_info->ai_addr,&(connection->connection_address_info->ai_addrlen));
+		int result = recvfrom(
+			sockfd,
+			&chunk,
+			sizeof(struct mftp_communication_chunk),
+			0,NULL,NULL
+		);
 		if (result < 0){
 			DEBUG_EXTRA perror("recvfrom");
 			free(chunk);
