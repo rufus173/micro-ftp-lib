@@ -3,29 +3,27 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../lib/mftplib.h"
+#include "main.h"
+void print_help();
 int main(int argc, char **argv){
-	struct mftp_connection *connection = mftp_connect(NULL,NULL);
-	if (connection == NULL){
-		fprintf(stderr,"failed to connect.\n");
-		return EXIT_FAILURE;
+	if (argc == 1){
+		print_help();
+		exit(EXIT_FAILURE);
 	}
-
-	struct mftp_communication_chunk *chunk = malloc(sizeof(struct mftp_communication_chunk));
-	strcpy(chunk->data,"hello");
-
-	for (;;){
-		int result = mftp_send_communication_chunk(connection,chunk);
-		if (result < 0){
-			fprintf(stderr,"could not send data");
-			perror("send_com_chunk");
-			free(chunk);
-			mftp_disconnect(connection);
-			exit(EXIT_FAILURE);
+	for (int i = 0; i < argc; i++){
+		if ((strcmp(argv[i],"-s") == 0) || (strcmp(argv[i],"--server") == 0))
+			return server_main(argc,argv);
+		if ((strcmp(argv[i],"-h") == 0) || (strcmp(argv[i],"--help") == 0)){
+			print_help();
+			exit(EXIT_SUCCESS);
 		}
 	}
-	free(chunk);
-
-	//free(mftp_recv_communication_chunk(connection));
-
-	mftp_disconnect(connection);
+	return client_main(argc,argv);
+}
+void print_help(){
+	printf(
+		"usage:\n"
+		"	-s [--server] : Start in server mode\n"
+		"	-h [--help] : show help text \n"
+	);
 }

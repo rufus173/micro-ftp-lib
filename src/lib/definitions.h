@@ -2,7 +2,7 @@
 #define _MFTP_CONSTANTS_H
 
 //comment out to disable debug
-//#define MFTP_DEBUG_EXTRA
+#define MFTP_DEBUG_EXTRA
 
 #include <netdb.h>
 #include <sys/socket.h>
@@ -13,6 +13,7 @@
 
 //default values
 #define DEFAULT_MFTP_PORT "1249"
+#define MAX_PACKET_PAYLOAD_SIZE 512
 
 //====== macros ======
 #ifndef MFTP_DEBUG_EXTRA
@@ -28,11 +29,13 @@ struct mftp_connection {
 	int socket;
 };
 struct mftp_communication_chunk {
-	char data[512];
+	char data[MAX_PACKET_PAYLOAD_SIZE];
 };
 
 //======== prototypes =========
 struct mftp_connection *mftp_connect(char *address, char *port);
+struct mftp_connection *mftp_listen(char *port);
+struct mftp_connection *mftp_create_connection(char *port);
 int mftp_disconnect(struct mftp_connection *connection);
 int mftp_send_communication_chunk(struct mftp_connection *connection, struct mftp_communication_chunk *chunk);
 struct mftp_communication_chunk *mftp_recv_communication_chunk(struct mftp_connection *connection);
