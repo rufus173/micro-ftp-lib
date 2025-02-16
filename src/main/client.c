@@ -14,8 +14,14 @@ int client_main(int argc, char **argv){
 		perror("mftp_connection");
 		exit(EXIT_FAILURE);
 	}
-
 	printf("connected\n");
-	mftp_disconnect(connection);
 
+	for (int i = 0; i < 5; i++){
+		struct mftp_communication_chunk chunk;
+		snprintf(chunk.data,MAX_CHUNK_DATA_SIZE,"hello world for the %d time",i);
+		int result = mftp_send_communication_chunk(connection,&chunk);
+		if (result < 0) break;
+	}
+
+	mftp_disconnect(connection);
 }

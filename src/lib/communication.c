@@ -56,7 +56,7 @@ struct mftp_communication_chunk *mftp_recv_communication_chunk(struct mftp_conne
 		//====== receive the data ======
 		int result = recvfrom(
 			sockfd,
-			&chunk,
+			chunk,
 			sizeof(struct mftp_communication_chunk),
 			0,NULL,NULL
 		);
@@ -73,7 +73,7 @@ struct mftp_communication_chunk *mftp_recv_communication_chunk(struct mftp_conne
 		//====== check for duplicate packets ======
 		int duplicate = 0;
 		for (int i = 0; i < MAX_TIMESPEC_BACKLOG; i++){
-			if (memcmp(&(connection->previous_timestamps[i]),&(chunk->timestamp),sizeof(struct timespec)) == 0){
+			if (memcmp(connection->previous_timestamps+i,&(chunk->timestamp),sizeof(struct timespec)) == 0){
 				duplicate = 1;
 				DEBUG_EXTRA printf("duplicate packet discarded\n");
 				break;
