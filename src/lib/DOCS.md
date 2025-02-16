@@ -5,6 +5,28 @@ For error output, add `#define MFTP_DEBUG_EXTRA` before your `#include "mftp.h"`
 
 # Connection and disconnection
 
+Connection use this structure:
+```C
+struct mftp_connection {
+	//===== dont worry about it =====
+	struct addrinfo *host_address_info;
+	struct addrinfo *connection_address_info;
+
+	//addresses
+	struct sockaddr *connection_addr;
+	socklen_t connection_addrlen;
+
+	//for packet duplication detection
+	struct timespec previous_timestamps[MAX_TIMESPEC_BACKLOG];
+	int previous_timestamps_oldest; //its like a circular queue but not
+	
+	//===== feel free to use this =====
+	//the socket
+	int socket;
+
+};
+```
+
 ## `struct mftp_connection *mftp_connect(char *address, char *port)`
 
 Feed this function the address and port of the machine to connect to.
@@ -23,3 +45,27 @@ Closes and frees an existing connection. `connection` is freed after this functi
 
 This function checks a connection to see if any ICMP messages about failed messages are available, hence whether any detectable errors have occurred. This does not detect if packets are dropped, or if the message gets to its location.
 Returns 0 if no errors were found or -1 if they were. Automatically called in the send and receive functions provided by this library. Errno is set if an error is detected, so if you want, you can use `perror` when it fails
+
+# Sending data
+
+Sending data uses this structure:
+```C
+struct mftp_communication_chunk {
+	//data used by the sending and receiving funciton
+	...
+
+	//data you as the user can set
+	char data[MAX_CHUNK_DATA_SIZE];
+};
+```
+
+
+## `int mftp_send_communication_chunk(struct mftp_connection *connection, struct mftp_communication_chunk *chunk)`
+
+This function will send a communication chunk. The chunk provided should be owned by the caller, and should be mutable. This function does not guarantee that the data reaches the receiver, but does guarantee that the data will be valid if it arrives.
+Return value of 0 on success, and -1 on failure.
+
+## `struct mftp_communication_chunk *mftp_recv_communication_chunk(struct mftp_connection *connection)`
+
+This function receives data from the connection. It will ensure there are no duplicate chunks and that any data that does arrive will be as it was sent. Possession of the returned chunk falls to the user, and they should `free(chunk)` when they are done.
+Return value of 0 on success, and -1 on failure.
