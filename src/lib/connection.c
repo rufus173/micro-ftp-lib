@@ -11,6 +11,7 @@
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <errno.h>
+#include <time.h>
 
 struct mftp_connection *mftp_create_connection(char *port){
 	if (port == NULL){
@@ -29,6 +30,8 @@ struct mftp_connection *mftp_create_connection(char *port){
 	connection->host_address_info = NULL;
 	connection->connection_address_info = NULL;
 	connection->connection_addr = NULL;
+	connection->previous_timestamps_oldest = 0;
+	memset(connection->previous_timestamps,0,sizeof(connection->previous_timestamps));
 
 	//======== fill in the neccesary paperwork for connecting =======
 	struct addrinfo hints, *host_address_info;
@@ -167,61 +170,6 @@ int mftp_disconnect(struct mftp_connection *connection){
 	freeaddrinfo(connection->host_address_info);
 	free(connection->connection_addr);
 	free(connection);
-}
-int mftp_send_communication_chunk(struct mftp_connection *connection, struct mftp_communication_chunk *chunk){
-	//unpack the struct a little
-	int sockfd = connection->socket;
-
-	//send untill the receiver gets it
-	for (;;){
-		int result = sendto(
-			sockfd,
-			chunk,
-			sizeof(struct mftp_communication_chunk),0,
-			connection->connection_addr,
-			connection->connection_addrlen
-		);
-		if (result < 0){
-			DEBUG_EXTRA perror("sendto");
-			return -1;
-		}
-		DEBUG_EXTRA printf("%d bytes out of %lu sent\n",result,sizeof(struct mftp_communication_chunk));
-		if (mftp_connection_check_error(connection) < 0){
-			DEBUG_EXTRA fprintf(stderr,"socket error.\n");
-			return -1;
-		}
-		break;
-	}
-}
-struct mftp_communication_chunk *mftp_recv_communication_chunk(struct mftp_connection *connection){
-	int sockfd = connection->socket;
-
-	//to receive into
-	struct mftp_communication_chunk *chunk = malloc(sizeof(struct mftp_communication_chunk));
-	if (chunk == NULL){
-		DEBUG_EXTRA perror("malloc");
-		return NULL;
-	}
-
-	for (;;){
-		int result = recvfrom(
-			sockfd,
-			&chunk,
-			sizeof(struct mftp_communication_chunk),
-			0,NULL,NULL
-		);
-		if (result < 0){
-			DEBUG_EXTRA perror("recvfrom");
-			free(chunk);
-			return NULL;
-		}
-		if (mftp_connection_check_error(connection) < 0){
-			DEBUG_EXTRA fprintf(stderr,"socket error.\n");
-			return NULL;
-		}
-		break;
-	}
-	return chunk;
 }
 int mftp_connection_check_error(struct mftp_connection *connection){
 	// im not gonnal lie i have no clue whats going on

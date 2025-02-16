@@ -14,6 +14,7 @@
 //default values
 #define DEFAULT_MFTP_PORT "1249"
 #define MAX_PACKET_PAYLOAD_SIZE 512
+#define MAX_TIMESPEC_BACKLOG 5 //for detecting repeat packets
 
 //====== macros ======
 #ifndef MFTP_DEBUG_EXTRA
@@ -31,9 +32,17 @@ struct mftp_connection {
 	struct sockaddr *connection_addr;
 	socklen_t connection_addrlen;
 	
+	//the socket
 	int socket;
+
+	//for packet duplication detection
+	struct timespec previous_timestamps[MAX_TIMESPEC_BACKLOG];
+	int previous_timestamps_oldest; //its like a circular queue but not
 };
 struct mftp_communication_chunk {
+	//====== set by sending funciton =======
+	struct timespec timestamp; //used for duplicate packet detection
+	//====== set by user ======
 	char data[MAX_PACKET_PAYLOAD_SIZE];
 };
 
