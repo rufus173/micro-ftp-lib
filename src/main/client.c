@@ -18,6 +18,7 @@ int client_main(int argc, char **argv){
 
 	for (int i = 0; i < 5; i++){
 		struct mftp_communication_chunk chunk;
+		//INIT_COMMUNICATION_CHUNK(&chunk);
 		snprintf(chunk.data,MAX_CHUNK_DATA_SIZE,"hello world for the %d time",i);
 		int result = mftp_send_communication_chunk(connection,&chunk,0);
 		if (result < 0) break;

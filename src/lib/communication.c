@@ -24,8 +24,9 @@ int mftp_send_communication_chunk(struct mftp_connection *connection, struct mft
 
 	//set the chunk timestamp
 	if (!( (flags & FLAG_DONT_TIMESTAMP) > 0 )){
-		DEBUG_EXTRA printf("chunk requested not to be timestamped\n");
 		mftp_timestamp_communication_chunk(chunk);
+	}else{
+		DEBUG_EXTRA printf("chunk requested not to be timestamped\n");
 	}
 
 	//send untill the receiver gets it

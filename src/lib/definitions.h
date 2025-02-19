@@ -31,6 +31,7 @@
 #else
 #define DEBUG_EXTRA if(1)
 #endif
+#define INIT_COMMUNICATION_CHUNK(chunk_p) do{(chunk_p)->flags=0;}while(0)
 
 //====== structs ======
 struct mftp_connection {

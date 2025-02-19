@@ -59,6 +59,8 @@ struct mftp_communication_chunk {
 };
 ```
 
+For your convenience, a macro, `INIT_COMMUNICATION_CHUNK(chunk_pointer)` can be used to set all the default values for a chunk. This MUST BE USED when sending chunks.
+
 
 ## `int mftp_send_communication_chunk(struct mftp_connection *connection, struct mftp_communication_chunk *chunk,int flags)`
 
