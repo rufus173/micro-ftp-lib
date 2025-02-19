@@ -17,13 +17,12 @@ int server_main(int argc, char **argv){
 	printf("connection found.\n");
 
 	for (;;){
-		struct mftp_communication_chunk *chunk;
-		chunk = mftp_recv_communication_chunk(connection);
-		if (chunk == NULL){
+		struct mftp_communication_chunk chunk;
+		int result = mftp_recv_communication_chunk(connection,&chunk,NULL,NULL,0);
+		if (result < 0){
 			break;
 		}
-		printf("%s\n",chunk->data);
-		free(chunk);
+		printf("%s\n",chunk.data);
 	}
 
 	mftp_disconnect(connection);

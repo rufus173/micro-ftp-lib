@@ -13,13 +13,20 @@
 #include <errno.h>
 #include <time.h>
 
+int mftp_timestamp_communication_chunk(struct mftp_communication_chunk *chunk){
+	return clock_gettime(CLOCK_REALTIME,&(chunk->timestamp));
+}
+
 //sending and receiving chunks
-int mftp_send_communication_chunk(struct mftp_connection *connection, struct mftp_communication_chunk *chunk){
+int mftp_send_communication_chunk(struct mftp_connection *connection, struct mftp_communication_chunk *chunk,int flags){
 	//unpack the struct a little
 	int sockfd = connection->socket;
 
 	//set the chunk timestamp
-	clock_gettime(CLOCK_REALTIME,&(chunk->timestamp));
+	if (!( (flags & FLAG_DONT_TIMESTAMP) > 0 )){
+		DEBUG_EXTRA printf("chunk requested not to be timestamped\n");
+		mftp_timestamp_communication_chunk(chunk);
+	}
 
 	//send untill the receiver gets it
 	for (;;){
@@ -42,15 +49,8 @@ int mftp_send_communication_chunk(struct mftp_connection *connection, struct mft
 		break;
 	}
 }
-struct mftp_communication_chunk *mftp_recv_communication_chunk(struct mftp_connection *connection){
+int mftp_recv_communication_chunk(struct mftp_connection *connection,struct mftp_communication_chunk *chunk,struct sockaddr *src_addr,socklen_t *src_addrlen,int flags){
 	int sockfd = connection->socket;
-
-	//to receive into
-	struct mftp_communication_chunk *chunk = malloc(sizeof(struct mftp_communication_chunk));
-	if (chunk == NULL){
-		DEBUG_EXTRA perror("malloc");
-		return NULL;
-	}
 
 	for (;;){
 		//====== receive the data ======
@@ -58,17 +58,17 @@ struct mftp_communication_chunk *mftp_recv_communication_chunk(struct mftp_conne
 			sockfd,
 			chunk,
 			sizeof(struct mftp_communication_chunk),
-			0,NULL,NULL
+			0,src_addr,src_addrlen
 		);
 		//====== check nothing went wrong ======
 		if (result < 0){
 			DEBUG_EXTRA perror("recvfrom");
 			free(chunk);
-			return NULL;
+			return -1;
 		}
 		if (mftp_connection_check_error(connection) < 0){
 			DEBUG_EXTRA fprintf(stderr,"socket error.\n");
-			return NULL;
+			return -1;
 		}
 		//====== check for duplicate packets ======
 		int duplicate = 0;
@@ -86,5 +86,5 @@ struct mftp_communication_chunk *mftp_recv_communication_chunk(struct mftp_conne
 		connection->previous_timestamps_oldest++;
 		connection->previous_timestamps_oldest %= MAX_TIMESPEC_BACKLOG; //wrap around the pointer
 	}
-	return chunk;
+	return 0;
 }

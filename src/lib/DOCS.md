@@ -60,12 +60,16 @@ struct mftp_communication_chunk {
 ```
 
 
-## `int mftp_send_communication_chunk(struct mftp_connection *connection, struct mftp_communication_chunk *chunk)`
+## `int mftp_send_communication_chunk(struct mftp_connection *connection, struct mftp_communication_chunk *chunk,int flags)`
 
 This function will send a communication chunk. The chunk provided should be owned by the caller, and should be mutable. This function does not guarantee that the data reaches the receiver, but does guarantee that the data will be valid if it arrives.
 Return value of 0 on success, and -1 on failure.
 
-## `struct mftp_communication_chunk *mftp_recv_communication_chunk(struct mftp_connection *connection)`
+## `int mftp_recv_communication_chunk(struct mftp_connection *connection,struct mftp_communication_chunk *,int flags)`
 
-This function receives data from the connection. It will ensure there are no duplicate chunks and that any data that does arrive will be as it was sent. Possession of the returned chunk falls to the user, and they should `free(chunk)` when they are done.
+This function receives data from the connection. It will ensure there are no duplicate chunks and that any data that does arrive will be as it was sent.
 Return value of 0 on success, and -1 on failure.
+
+## `int mftp_timestamp_communication_chunk(struct mftp_communication_chunk *chunk)`
+
+This is usefull with the flag `FLAG_DONT_TIMESTAMP`, as this allows you to send what the reciever would recognise as the "same" packet multiple times. The receiver weeds out duplicates based on duplicate timestamps, so by sending multiple times with the same timestamp, only one will be picked up.

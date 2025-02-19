@@ -1,6 +1,7 @@
 
 #include "definitions.h"
 
+#include <poll.h>
 #include <stdio.h>
 #include <netdb.h>
 #include <sys/socket.h>
@@ -105,10 +106,40 @@ struct mftp_connection *mftp_connect(char *address, char *port){
 	connection->connection_addrlen = client_address_info->ai_addrlen;
 
 	//====== handshake with server ======
+	//hold out hand
 	struct mftp_communication_chunk chunk;
-	result = mftp_send_communication_chunk(connection,&chunk);
+	chunk.flags |= CHUNK_FLAG_CONNECTION_REQUEST;
+	strcpy(chunk.data,"Connection request");
+	result = mftp_send_communication_chunk(connection,&chunk,0);
 	if (result < 0){
 		DEBUG_EXTRA perror("mftp_send_communication_chunk");
+		mftp_disconnect(connection);
+		return NULL;
+	}
+	//wait for the client to shake
+	struct pollfd poll_data;
+	poll_data.fd = connection->socket;
+	poll_data.events = POLLIN;
+	
+	result = poll(&poll_data,1,MAX_RESPONSE_TIMEOUT);
+	if (result < 0){
+		DEBUG_EXTRA perror("poll");
+		mftp_disconnect(connection);
+		return NULL;
+	}
+	if (result == 0){
+		errno = ETIMEDOUT;
+		DEBUG_EXTRA printf("connection timed out\n");
+		mftp_disconnect(connection);
+		return NULL;
+	}
+
+	//confirm its a handshake
+	mftp_recv_communication_chunk(connection,&chunk,NULL,NULL,0);
+	if (!((chunk.flags & CHUNK_FLAG_ACCEPT_CONNECTION) > 0)){
+		//they declined
+		errno = ECONNREFUSED;
+		DEBUG_EXTRA printf("connection declined\n");
 		mftp_disconnect(connection);
 		return NULL;
 	}
@@ -136,27 +167,39 @@ struct mftp_connection *mftp_listen(char *port){
 	DEBUG_EXTRA printf("listening for connection...\n");
 	socklen_t src_addrlen = sizeof(struct sockaddr_in6); //max size necessary
 	struct sockaddr *src_addr = malloc(src_addrlen);
-	for (;;){
+	for (int i = 0;;i++){
 		struct mftp_communication_chunk chunk;
-		int result = recvfrom(sockfd,&chunk,sizeof(struct mftp_communication_chunk),0,src_addr,&src_addrlen);
-		if (result < 0){
-			DEBUG_EXTRA perror("recvfrom");
-			mftp_disconnect(connection);
-			return NULL;
+		int result = mftp_recv_communication_chunk(connection,&chunk,src_addr,&src_addrlen,0);
+		if ((result < 0) || ((chunk.flags & CHUNK_FLAG_ACCEPT_CONNECTION) > 0)){
+			if (i > MAX_CONNECTION_ATTEMPTS){
+				DEBUG_EXTRA printf("max connection attempts reached");
+				mftp_disconnect(connection);
+				return NULL;
+			}
+			continue;
 		}
-
-		//stop when we get an in tact packet
-		if (result == sizeof(struct mftp_communication_chunk)){
-			break;
-		}else{
-			DEBUG_EXTRA printf("broken packet found.\n");
-		}
+		break;
 	}
 
 	//====== store it in the connection struct ======
 	connection->connection_addr = src_addr;
 	connection->connection_addrlen = src_addrlen;
 
+	//====== send ack (MAX_CONNECTION_ATTEMTS times for good measure) ======
+	struct mftp_communication_chunk chunk;
+	chunk.flags |= CHUNK_FLAG_ACCEPT_CONNECTION;
+	
+	//packet is picked up as a repeat after first recipt
+	mftp_timestamp_communication_chunk(&chunk);
+
+	//for (int i = 0;i < MAX_CONNECTION_ATTEMPTS;i++){
+		int result = mftp_send_communication_chunk(connection,&chunk,FLAG_DONT_TIMESTAMP);
+		if (result < 0){
+			DEBUG_EXTRA perror("mftp_send_communication_chunk");
+			mftp_disconnect(connection);
+			return NULL;
+		}
+	//}
 	return connection;
 }
 int mftp_disconnect(struct mftp_connection *connection){
@@ -174,7 +217,7 @@ int mftp_disconnect(struct mftp_connection *connection){
 int mftp_connection_check_error(struct mftp_connection *connection){
 	// im not gonnal lie i have no clue whats going on
 	// i did write this but im not sure how it works
-	DEBUG_EXTRA printf("checking for errors...\n");
+	//DEBUG_EXTRA printf("checking for errors...\n");
 	int sockfd = connection->socket;
 	size_t max_buffer_size = 512;
 	char *anc_buffer = malloc(max_buffer_size);
@@ -191,7 +234,7 @@ int mftp_connection_check_error(struct mftp_connection *connection){
 		//acts as a non blocking socket when no errors are available
 		if (errno == EWOULDBLOCK || errno == EAGAIN){
 			//no errors
-			DEBUG_EXTRA printf("No errors found.\n");
+			//DEBUG_EXTRA printf("No errors found.\n");
 			free(anc_buffer);
 			return 0;
 		}
